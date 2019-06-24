@@ -56,15 +56,25 @@ initialModel =
 
 
 type Msg
-    = FieldChange FieldName FieldError FieldValue
+    = FieldChange FieldName (Maybe FieldValidator) FieldValue
     | FieldTouch FieldName
+
+
+handleValidator : Maybe FieldValidator -> Model -> String
+handleValidator v m =
+    case v of
+        Just validator ->
+            validator m
+
+        Nothing ->
+            ""
 
 
 update : Msg -> Model -> Model
 update msg model =
     case msg of
-        FieldChange field error value ->
-            Dict.update field (nextValue error value) model
+        FieldChange field validator value ->
+            Dict.update field (nextValue (handleValidator validator model) value) model
 
         FieldTouch field ->
             Dict.update field setTouched model
@@ -94,7 +104,7 @@ nextValue : FieldError -> FieldValue -> Maybe Field -> Maybe Field
 nextValue error value oldField =
     case oldField of
         Just oldValue ->
-            Just { oldValue | value = value, error = error }
+            Just { oldValue | value = value, error = Debug.log "inNextValue" error }
 
         Nothing ->
             Just (Field True "" "")
@@ -133,16 +143,6 @@ view model =
         ]
 
 
-handleValidator : Maybe FieldValidator -> Model -> String
-handleValidator v m =
-    case v of
-        Just validator ->
-            validator m
-
-        Nothing ->
-            ""
-
-
 viewError : FieldError -> Html Msg
 viewError e =
     div []
@@ -155,10 +155,10 @@ inputField :
     -> FieldType
     -> Model
     -> Maybe FieldValidator
-    -> (FieldName -> FieldError -> FieldValue -> Msg)
+    -> (FieldName -> Maybe FieldValidator -> FieldValue -> Msg)
     -> (FieldName -> Msg)
     -> Html Msg
-inputField fName fType model validate toChange toTouch =
+inputField fName fType model validator toChange toTouch =
     let
         field =
             getField fName model
@@ -168,7 +168,7 @@ inputField fName fType model validate toChange toTouch =
             [ name fName
             , type_ fType
             , value field.value
-            , onInput (toChange fName (handleValidator validate model))
+            , onInput (toChange fName validator)
             , onBlur (toTouch fName)
             ]
             []
