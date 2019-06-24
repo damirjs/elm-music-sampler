@@ -1,107 +1,178 @@
 module Main exposing (main)
 
 import Browser
+import Debug
+import Dict exposing (..)
 import Html exposing (..)
 import Html.Attributes exposing (..)
-import Html.Events exposing (onClick)
-import List.Extra exposing (setAt)
+import Html.Events exposing (..)
 
 
 
 -- MODEL
 
 
-type alias Model =
-    { ticks : List Bool
+type alias FieldName =
+    String
+
+
+type alias FieldValue =
+    String
+
+
+type alias FieldError =
+    String
+
+
+type alias FieldType =
+    String
+
+
+type alias Field =
+    { touched : Bool
+    , value : FieldValue
+    , error : FieldError
     }
+
+
+type alias FieldValidator =
+    Model -> FieldError
+
+
+type alias Model =
+    Dict FieldName Field
 
 
 initialModel : Model
 initialModel =
-    { ticks = [ False, False, False, False, False, False, False, False ]
-    }
+    Dict.fromList
+        [ ( "password", Field False "" "" )
+        , ( "passwordRepeat", Field False "" "" )
+        ]
 
 
 
 -- UPDATE
 
 
-type alias Msg =
-    { description : String
-    , data : { idx : Int, value : Bool }
-    }
+type Msg
+    = FieldChange FieldName FieldError FieldValue
+    | FieldTouch FieldName
 
 
 update : Msg -> Model -> Model
 update msg model =
-    if msg.description == "ClickedTick" then
-        let
-            nextTicks =
-                setAt msg.data.idx msg.data.value model.ticks
-        in
-        { model | ticks = nextTicks }
+    case msg of
+        FieldChange field error value ->
+            Dict.update field (nextValue error value) model
 
-    else
-        model
+        FieldTouch field ->
+            Dict.update field setTouched model
 
 
+getField : FieldName -> Model -> Field
+getField n m =
+    case Dict.get n m of
+        Just a ->
+            a
 
--- VIEW
-
-
-viewHeader : Html Msg
-viewHeader =
-    header [ class "header" ]
-        [ div [ class "container" ]
-            [ h1 [ class "logo-font" ] [ text "Elm music sampler" ]
-            , p [] [ text "Main motto." ]
-            ]
-        ]
+        Nothing ->
+            Field False "" ""
 
 
-viewTick : Int -> Bool -> Html Msg
-viewTick idx isActive =
-    let
-        className =
-            if isActive then
-                "tick-active"
+setTouched : Maybe Field -> Maybe Field
+setTouched oldField =
+    case oldField of
+        Just oldValue ->
+            Just { oldValue | touched = True }
 
-            else
-                "tick-default"
-    in
-    input
-        [ checked isActive
-        , type_ "checkbox"
-        , class ("tick " ++ className)
-        , onClick { description = "ClickedTick", data = { idx = idx, value = not isActive } }
-        ]
-        []
+        Nothing ->
+            Just (Field True "" "")
 
 
-viewTicks : Model -> Html Msg
-viewTicks model =
-    div [ class "ticks-list" ] (List.indexedMap viewTick model.ticks)
+nextValue : FieldError -> FieldValue -> Maybe Field -> Maybe Field
+nextValue error value oldField =
+    case oldField of
+        Just oldValue ->
+            Just { oldValue | value = value, error = error }
+
+        Nothing ->
+            Just (Field True "" "")
+
+
+pwdConfValidator : Model -> FieldError
+pwdConfValidator m =
+    Debug.log "res"
+        (let
+            pwd =
+                .value (getField "password" m)
+
+            pwdRepeat =
+                .value (getField "passwordRepeat" m)
+         in
+         if Debug.log "pwd" pwd /= Debug.log "pwdR" pwdRepeat then
+            "Passwords doesn't match"
+
+         else
+            ""
+        )
 
 
 view : Model -> Html Msg
 view model =
-    let
-        activeTicksCount =
-            String.fromInt (List.length (List.filter (\x -> x) model.ticks))
-    in
-    div [ class "home-page" ]
-        [ viewHeader
-        , div [ class "container page" ]
-            [ div [ class "row" ]
-                [ div [ class "col-md-9" ] []
-                , div [ class "col-md-3" ]
-                    [ div [ class "sidebar" ]
-                        [ p [] [ text ("Active ticks: " ++ activeTicksCount) ]
-                        , viewTicks model
-                        ]
-                    ]
+    Html.form []
+        [ div []
+            [ div [] [ text (Debug.toString model) ]
+            , div []
+                [ inputField "password" "text" model Nothing FieldChange FieldTouch
+                ]
+            , div []
+                [ inputField "passwordRepeat" "text" model (Just pwdConfValidator) FieldChange FieldTouch
                 ]
             ]
+        ]
+
+
+handleValidator : Maybe FieldValidator -> Model -> String
+handleValidator v m =
+    case v of
+        Just validator ->
+            validator m
+
+        Nothing ->
+            ""
+
+
+viewError : FieldError -> Html Msg
+viewError e =
+    div []
+        [ text e
+        ]
+
+
+inputField :
+    FieldName
+    -> FieldType
+    -> Model
+    -> Maybe FieldValidator
+    -> (FieldName -> FieldError -> FieldValue -> Msg)
+    -> (FieldName -> Msg)
+    -> Html Msg
+inputField fName fType model validate toChange toTouch =
+    let
+        field =
+            getField fName model
+    in
+    label []
+        [ input
+            [ name fName
+            , type_ fType
+            , value field.value
+            , onInput (toChange fName (handleValidator validate model))
+            , onBlur (toTouch fName)
+            ]
+            []
+        , viewError field.error
         ]
 
 
@@ -112,7 +183,4 @@ view model =
 main : Program () Model Msg
 main =
     Browser.sandbox
-        { init = initialModel
-        , view = view
-        , update = update
-        }
+        { init = initialModel, view = view, update = update }
