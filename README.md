@@ -1,2 +1,1 @@
-# elm-music-sampler
-Elm music sampler
+# elm-pet
