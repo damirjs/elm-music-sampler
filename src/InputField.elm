@@ -7,15 +7,20 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 
 
+type alias InputFieldOptions =
+    { fName : FieldName
+    , fType : FieldType
+    , model : Model
+    , validator : Maybe FieldValidator
+    , toChangeMsg : FieldName -> Maybe FieldValidator -> FieldValue -> Msg
+    , toTouchMsg : FieldName -> Msg
+    }
+
+
 inputField :
-    FieldName
-    -> FieldType
-    -> Model
-    -> Maybe FieldValidator
-    -> (FieldName -> Maybe FieldValidator -> FieldValue -> Msg)
-    -> (FieldName -> Msg)
+    InputFieldOptions
     -> Html Msg
-inputField fName fType model validator toChange toTouch =
+inputField { fName, fType, model, validator, toChangeMsg, toTouchMsg } =
     let
         field =
             getField fName model
@@ -25,16 +30,25 @@ inputField fName fType model validator toChange toTouch =
             [ name fName
             , type_ fType
             , value field.value
-            , onInput (toChange fName validator)
-            , onBlur (toTouch fName)
+            , onInput (toChangeMsg fName validator)
+            , onBlur (toTouchMsg fName)
             ]
             []
         , viewError field.error
         ]
 
 
-viewError : FieldError -> Html Msg
+viewError : Maybe TextError -> Html Msg
 viewError e =
     div []
-        [ text e
+        [ case e of
+            Just textError ->
+                let
+                    (TextError v) =
+                        textError
+                in
+                text v
+
+            Nothing ->
+                text ""
         ]

@@ -6,11 +6,13 @@ import FormTypes exposing (..)
 import FormUpdate exposing (..)
 import Html exposing (..)
 import InputField exposing (..)
+import Platform.Cmd
+import Platform.Sub
 
 
-pwdConfValidator : Model -> FieldError
+pwdConfValidator : Model -> ValidationResult
 pwdConfValidator m =
-    Debug.log "res"
+    Debug.log "validator res"
         (let
             pwd =
                 .value (getField "password" m)
@@ -19,10 +21,10 @@ pwdConfValidator m =
                 .value (getField "passwordRepeat" m)
          in
          if Debug.log "pwd" pwd /= Debug.log "pwdR" pwdRepeat then
-            "Passwords doesn't match"
+            ValidationResult (Err (TextError "Passwords doesn't match"))
 
          else
-            ""
+            ValidationResult (Ok True)
         )
 
 
@@ -32,10 +34,24 @@ view model =
         [ div []
             [ div [] [ text (Debug.toString model) ]
             , div []
-                [ inputField "password" "text" model Nothing FieldChange FieldTouch
+                [ inputField
+                    { fName = "password"
+                    , fType = "text"
+                    , model = model
+                    , validator = Nothing
+                    , toChangeMsg = FieldChange
+                    , toTouchMsg = FieldTouch
+                    }
                 ]
             , div []
-                [ inputField "passwordRepeat" "text" model (Just pwdConfValidator) FieldChange FieldTouch
+                [ inputField
+                    { fName = "passwordRepeat"
+                    , fType = "text"
+                    , model = model
+                    , validator = Just pwdConfValidator
+                    , toChangeMsg = FieldChange
+                    , toTouchMsg = FieldTouch
+                    }
                 ]
             ]
         ]
@@ -45,7 +61,15 @@ view model =
 -- MAIN
 
 
+init : () -> ( Model, Cmd Msg )
+init () =
+    ( FormUpdate.initialModel, Cmd.none )
+
+
+subscriptions _ =
+    Sub.none
+
+
 main : Program () Model Msg
 main =
-    Browser.sandbox
-        { init = FormUpdate.initialModel, view = view, update = FormUpdate.update }
+    Browser.element { init = init, view = view, update = FormUpdate.update, subscriptions = subscriptions }

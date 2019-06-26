@@ -1,4 +1,14 @@
-module FormTypes exposing (Field, FieldError, FieldName, FieldType, FieldValidator, FieldValue, Model, Msg(..))
+module FormTypes exposing
+    ( Field
+    , FieldName
+    , FieldType
+    , FieldValidator
+    , FieldValue
+    , Model
+    , Msg(..)
+    , TextError(..)
+    , ValidationResult(..)
+    )
 
 import Dict exposing (..)
 
@@ -11,23 +21,27 @@ type alias FieldValue =
     String
 
 
-type alias FieldError =
-    String
-
-
 type alias FieldType =
     String
+
+
+type TextError
+    = TextError String
 
 
 type alias Field =
     { touched : Bool
     , value : FieldValue
-    , error : FieldError
+    , error : Maybe TextError
     }
 
 
+type ValidationResult
+    = ValidationResult (Result TextError Bool)
+
+
 type alias FieldValidator =
-    Model -> FieldError
+    Model -> ValidationResult
 
 
 type alias Model =

@@ -2,34 +2,44 @@ module FormUpdate exposing (getField, initialModel, update)
 
 import Dict exposing (..)
 import FormTypes exposing (..)
+import Platform.Cmd
 
 
 initialModel : Model
 initialModel =
     Dict.fromList
-        [ ( "password", Field False "" "" )
-        , ( "passwordRepeat", Field False "" "" )
+        [ ( "password", Field False "" Nothing )
+        , ( "passwordRepeat", Field False "" Nothing )
         ]
 
 
-update : Msg -> Model -> Model
+update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         FieldChange field validator value ->
-            Dict.update field (nextValue (handleValidator validator model) value) model
+            ( Dict.update field (nextValue (validate validator model) value) model, Cmd.none )
 
         FieldTouch field ->
-            Dict.update field setTouched model
+            ( Dict.update field setTouched model, Cmd.none )
 
 
-handleValidator : Maybe FieldValidator -> Model -> String
-handleValidator v m =
-    case v of
+validate : Maybe FieldValidator -> Model -> Maybe TextError
+validate maybeVal m =
+    case maybeVal of
         Just validator ->
-            validator m
+            let
+                (ValidationResult result) =
+                    validator m
+            in
+            case result of
+                Err textError ->
+                    Just textError
+
+                Ok _ ->
+                    Nothing
 
         Nothing ->
-            ""
+            Nothing
 
 
 setTouched : Maybe Field -> Maybe Field
@@ -39,17 +49,17 @@ setTouched oldField =
             Just { oldValue | touched = True }
 
         Nothing ->
-            Just (Field True "" "")
+            Just (Field True "" Nothing)
 
 
-nextValue : FieldError -> FieldValue -> Maybe Field -> Maybe Field
+nextValue : Maybe TextError -> FieldValue -> Maybe Field -> Maybe Field
 nextValue error value oldField =
     case oldField of
         Just oldValue ->
-            Just { oldValue | value = value, error = Debug.log "inNextValue" error }
+            Just { oldValue | value = value, error = Debug.log "nextErrorValue" error }
 
         Nothing ->
-            Just (Field True "" "")
+            Just (Field True "" Nothing)
 
 
 getField : FieldName -> Model -> Field
@@ -59,4 +69,4 @@ getField n m =
             a
 
         Nothing ->
-            Field False "" ""
+            Field False "" Nothing
